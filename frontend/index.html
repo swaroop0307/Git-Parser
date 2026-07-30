@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Repo RAG Explainer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Left Sidebar: Controls & Scopes -->
+    <aside class="sidebar">
+      <div class="logo-area">
+        <img src="https://img.icons8.com/color/96/git.png" alt="Logo" class="logo">
+        <h2>RAG Explainer</h2>
+      </div>
+      
+      <div class="control-card">
+        <h3>Repository Ingestion</h3>
+        <p class="card-desc">Provide a public HTTPS GitHub repo to parse and embed.</p>
+        <div class="input-group">
+          <input type="text" id="repo-url-input" placeholder="https://github.com/owner/repo" autocomplete="off">
+          <button id="index-btn">Index Repository</button>
+        </div>
+        <div id="index-status" class="status-box"></div>
+      </div>
+      
+      <div class="scope-card">
+        <h3>Active Scope</h3>
+        <div id="active-repo-badge" class="badge warning">No Repository Indexed</div>
+      </div>
+      
+      <div class="sidebar-footer">
+        <div class="footer-credit">🧬 <b>Senior Dev Portfolio RAG</b></div>
+        <div>Features: Safe symlink checks, idempotent storage, SSE-streaming, retrieval evaluations.</div>
+      </div>
+    </aside>
+    
+    <!-- Main Content Area: Chat Panel -->
+    <main class="chat-panel">
+      <header class="panel-header">
+        <h1 class="gradient-title">GitHub RAG Explainer</h1>
+        <p class="panel-subtitle">Analyze and explain complex repositories using semantic structural search.</p>
+      </header>
+      
+      <!-- Message List Area -->
+      <div id="chat-history" class="chat-history">
+        <!-- Default Quick Suggestions Panel -->
+        <div id="quick-prompts" class="quick-prompts">
+          <h3>Suggested Prompts</h3>
+          <div class="suggestion-grid">
+            <button class="sug-btn" data-query="Explain the overall architecture and main entry point.">
+              Explain the overall architecture and main entry point.
+            </button>
+            <button class="sug-btn" data-query="What patterns or packages does this codebase rely on?">
+              What patterns or packages does this codebase rely on?
+            </button>
+            <button class="sug-btn" data-query="Are there any security concerns or database models defined?">
+              Are there any security concerns or database models defined?
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Sticky Input Bar -->
+      <footer class="panel-footer">
+        <div class="chat-input-wrapper">
+          <input type="text" id="chat-input" placeholder="Index a repository to start chatting..." disabled>
+          <button id="send-btn" disabled>Send</button>
+        </div>
+      </footer>
+    </main>
+  </div>
+  
+  <script src="app.js"></script>
+</body>
+</html>
