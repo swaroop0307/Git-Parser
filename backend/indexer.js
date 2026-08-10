@@ -1,13 +1,13 @@
 const { ChromaClient } = require("chromadb");
-const { OpenAI } = require("openai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Initialize OpenAI client for embeddings
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
+// Initialize Gemini client for embeddings
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured.");
+    throw new Error("GEMINI_API_KEY is not configured.");
   }
-  return new OpenAI({ apiKey });
+  return new GoogleGenerativeAI(apiKey.trim());
 }
 
 // Get Chroma client pointing to local DB server
@@ -38,7 +38,7 @@ async function clearIndexedRepo(repoUrl) {
 }
 
 /**
- * Generates embeddings using OpenAI and inserts chunks in ChromaDB.
+ * Generates embeddings using Gemini and inserts chunks in ChromaDB.
  */
 async function indexDocuments(documents, repoUrl) {
   // 1. Clean existing records for this repo
@@ -46,7 +46,8 @@ async function indexDocuments(documents, repoUrl) {
   
   if (!documents || documents.length === 0) return;
   
-  const openai = getOpenAIClient();
+  const genAI = getGeminiClient();
+  const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
   const chroma = getChromaClient();
   
   const collection = await chroma.getOrCreateCollection({ name: "repo_chunks" });
@@ -60,17 +61,15 @@ async function indexDocuments(documents, repoUrl) {
     const contents = batch.map((d) => d.page_content);
     
     // Generate embeddings for the batch
-    let embeddingRes;
-    try {
-      embeddingRes = await openai.embeddings.create({
-        model: process.env.EMBEDDING_MODEL || "text-embedding-3-small",
-        input: contents
-      });
-    } catch (e) {
-      throw new Error(`OpenAI Embedding API error: ${e.message}`);
+    const embeddings = [];
+    for (const text of contents) {
+      try {
+        const result = await model.embedContent(text);
+        embeddings.push(result.embedding.values);
+      } catch (e) {
+        throw new Error(`Gemini Embedding API error: ${e.message}`);
+      }
     }
-    
-    const embeddings = embeddingRes.data.map((item) => item.embedding);
     
     // Chroma expects ids, documents, metadatas, and embeddings
     const ids = batch.map((_, idx) => `${repoUrl}_chunk_${i + idx}_${Date.now()}`);

@@ -24,7 +24,7 @@ let isIndexing = false;
 app.get("/health", (req, res) => {
   res.json({
     status: "healthy",
-    openai_key_configured: !!process.env.OPENAI_API_KEY,
+    gemini_key_configured: !!process.env.GEMINI_API_KEY,
     database_url: process.env.CHROMADB_URL || "http://localhost:8000"
   });
 });
@@ -36,8 +36,8 @@ app.post("/index", async (req, res) => {
     return res.status(400).json({ detail: "repo_url parameter is required." });
   }
   
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(500).json({ detail: "OpenAI API key is not configured on backend." });
+  if (!process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ detail: "GEMINI_API_KEY is not configured on backend." });
   }
   
   let safeRepoUrl;

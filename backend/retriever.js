@@ -1,5 +1,5 @@
 const { ChromaClient } = require("chromadb");
-const { OpenAI } = require("openai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 /**
  * Handles the RAG search, constructs the prompt, and writes Server-Sent Events (SSE)
@@ -9,15 +9,18 @@ const { OpenAI } = require("openai");
  * @param {object} res - Express response object.
  */
 async function retrieveAndGenerateStream(repoUrl, question, res) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    res.write(`data: ${JSON.stringify({ event: "error", data: "OPENAI_API_KEY is not configured on the backend." })}\n\n`);
+    res.write(`data: ${JSON.stringify({ event: "error", data: "GEMINI_API_KEY is not configured on the backend." })}\n\n`);
     res.write(`data: ${JSON.stringify({ event: "done" })}\n\n`);
     res.end();
     return;
   }
   
-  const openai = new OpenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(apiKey.trim());
+  const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
+  const chatModel = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
+
   const host = process.env.CHROMADB_URL || "http://localhost:8000";
   const chroma = new ChromaClient({ path: host });
   
@@ -31,21 +34,17 @@ async function retrieveAndGenerateStream(repoUrl, question, res) {
     return;
   }
   
-  // 1. Generate query embedding
-  let embeddingRes;
+  // 1. Generate query embedding using Gemini
+  let queryEmbedding;
   try {
-    embeddingRes = await openai.embeddings.create({
-      model: process.env.EMBEDDING_MODEL || "text-embedding-3-small",
-      input: [question]
-    });
+    const embedRes = await embeddingModel.embedContent(question);
+    queryEmbedding = embedRes.embedding.values;
   } catch (err) {
     res.write(`data: ${JSON.stringify({ event: "error", data: `Failed to embed query: ${err.message}` })}\n\n`);
     res.write(`data: ${JSON.stringify({ event: "done" })}\n\n`);
     res.end();
     return;
   }
-  
-  const queryEmbedding = embeddingRes.data[0].embedding;
   
   // 2. Fetch similarity search with metadata repo_url filtering
   let searchRes;
@@ -102,26 +101,21 @@ async function retrieveAndGenerateStream(repoUrl, question, res) {
     "Please follow these guidelines strictly:\n" +
     "1. Direct Reference: Reference specific file paths and line numbers/contexts when explaining.\n" +
     "2. Strict Grounding: Rely ONLY on the provided code context. Do not invent details or assume code exists outside the context.\n" +
-    "3. Clear Structure: Explain the architecture, design patterns, and logic clearly using markdown. Use syntax highlighting in code blocks.\n" +
+    "3. Clear Structure: Explain the architecture, design patterns, and logic clearly using plain text only. DO NOT use markdown formatting like **, ##, etc.\n" +
     "4. Gaps/Limitations: If the provided code chunks do not contain enough information to answer the question, state that clearly and identify what parts are missing."
   );
   
   const humanPrompt = `Code Context:\n${contextStr}\n\nUser Question: ${question}`;
   
-  // 4. Stream LLM tokens
+  // 4. Stream LLM tokens using Gemini
   try {
-    const stream = await openai.chat.completions.create({
-      model: process.env.LLM_MODEL || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: humanPrompt }
-      ],
-      temperature: 0.1, // Highly grounded factual temperature
-      stream: true
+    const streamRes = await chatModel.generateContentStream({
+      contents: [{ role: "user", parts: [{ text: humanPrompt }] }],
+      systemInstruction: systemPrompt
     });
     
-    for await (const chunk of stream) {
-      const token = chunk.choices[0]?.delta?.content || "";
+    for await (const chunk of streamRes.stream) {
+      const token = chunk.text();
       if (token) {
         res.write(`data: ${JSON.stringify({ event: "token", data: token })}\n\n`);
       }
